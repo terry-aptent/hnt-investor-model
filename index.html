@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HaloNutraTherapy — Investor Revenue Model</title>
+<meta name="description" content="Interactive revenue and profit model for HaloNutraTherapy — plug in your own unit sales assumptions and see projected sales, revenue, margin, and profit.">
+<style>
+  :root {
+    --navy: #0d1b2a;
+    --navy-mid: #152336;
+    --navy-light: #1e3450;
+    --teal: #00c9b1;
+    --teal-dim: #00a896;
+    --gold: #c9a84c;
+    --gold-dim: #a8873a;
+    --white: #f4f6f9;
+    --muted: #8da0b3;
+    --card-bg: #152336;
+    --border: rgba(0,201,177,0.15);
+    --surface-1: #152336;
+    --text-primary: #f4f6f9;
+    --text-secondary: #c3ccd6;
+    --text-muted: #8da0b3;
+    --gridline: #223349;
+    --baseline: #35496305;
+
+    --series-1: #3987e5; /* blue */
+    --series-2: #d95926; /* orange */
+    --series-3: #199e70; /* aqua */
+    --series-4: #c98500; /* yellow */
+    --series-5: #d55181; /* magenta */
+    --series-6: #008300; /* green */
+    --series-7: #9085e9; /* violet */
+    --series-8: #e66767; /* red */
+
+    --good: #0ca30c;
+    --critical: #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--navy);
+    color: var(--white);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: linear-gradient(135deg, #0a1520 0%, var(--navy-mid) 100%);
+    min-height: 100vh;
+  }
+  a { color: var(--teal); }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+
+  header.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .brand-mark {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--teal) 0%, var(--gold) 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 18px; color: var(--navy);
+    flex-shrink: 0;
+  }
+  .brand h1 {
+    margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .brand p {
+    margin: 2px 0 0; font-size: 13px; color: var(--muted);
+  }
+  .header-note {
+    font-size: 12.5px; color: var(--muted); max-width: 360px; line-height: 1.5; text-align: right;
+  }
+  @media (max-width: 720px) {
+    .header-note { text-align: left; max-width: none; }
+  }
+
+  h2.section-title {
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--teal);
+    margin: 0 0 4px;
+  }
+  p.section-sub {
+    margin: 0 0 16px;
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  section { margin-bottom: 40px; }
+
+  /* Stat tiles */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  .kpi-tile {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .kpi-label {
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--muted); margin-bottom: 8px; font-weight: 600;
+  }
+  .kpi-value {
+    font-size: 26px; font-weight: 700; color: var(--white);
+    font-variant-numeric: proportional-nums;
+    line-height: 1.1;
+  }
+  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .kpi-sub.good { color: var(--good); }
+
+  .year-select-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .year-select-row label { font-size: 13px; color: var(--muted); }
+  select, input[type=number] {
+    background: var(--navy-light);
+    border: 1px solid var(--border);
+    color: var(--white);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 13.5px;
+    font-family: inherit;
+  }
+  select:focus, input[type=number]:focus {
+    outline: 2px solid var(--teal); outline-offset: 1px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+  }
+
+  /* Input table */
+  .table-scroll { overflow-x: auto; }
+  table.model-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 760px;
+  }
+  table.model-table th, table.model-table td {
+    padding: 9px 10px;
+    text-align: right;
+    border-bottom: 1px solid var(--gridline);
+    white-space: nowrap;
+  }
+  table.model-table th:first-child, table.model-table td:first-child {
+    text-align: left;
+    position: sticky;
+    left: 0;
+    background: var(--card-bg);
+  }
+  table.model-table thead th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid var(--border);
+  }
+  table.model-table .group-row td {
+    padding-top: 16px;
+    font-weight: 700;
+    color: var(--teal);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: none;
+  }
+  table.model-table .ref-cell { color: var(--text-muted); font-size: 12px; }
+  table.model-table .total-row td {
+    font-weight: 700;
+    color: var(--white);
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+  }
+  table.model-table input[type=number] {
+    width: 76px;
+    text-align: right;
+    padding: 5px 8px;
+  }
+  table.model-table input[type=number]::-webkit-inner-spin-button {
+    opacity: 0.6;
+  }
+
+  .actions-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  button.btn {
+    background: var(--navy-light);
+    color: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button.btn:hover { border-color: var(--teal); }
+  button.btn.primary {
+    background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dim) 100%);
+    color: var(--navy);
+    border: none;
+  }
+  button.btn.primary:hover { filter: brightness(1.08); }
+
+  details.assumptions {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 22px;
+  }
+  details.assumptions summary {
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--teal);
+    list-style: none;
+  }
+  details.assumptions summary::-webkit-details-marker { display: none; }
+  details.assumptions summary::before {
+    content: "▸ ";
+    display: inline-block;
+    transition: transform 0.15s;
+  }
+  details.assumptions[open] summary::before { transform: rotate(90deg); }
+  .assump-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px 28px;
+    margin-top: 18px;
+  }
+  @media (max-width: 900px) { .assump-grid { grid-template-columns: 1fr; } }
+  .assump-block h4 {
+    margin: 0 0 10px; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--muted); font-weight: 700;
+  }
+  .assump-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--gridline);
+  }
+  .assump-row span { color: var(--text-secondary); }
+  .assump-row input { width: 72px; }
+  .assump-note { font-size: 11.5px; color: var(--text-muted); margin-top: 10px; line-height: 1.5; }
+
+  /* Charts */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } }
+  .chart-title { font-size: 13.5px; font-weight: 700; color: var(--white); margin: 0 0 2px; }
+  .chart-legend {
+    display: flex; gap: 16px; flex-wrap: wrap; margin: 10px 0 14px;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+  svg.chart { width: 100%; height: auto; overflow: visible; }
+  .axis-label { fill: var(--text-muted); font-size: 10.5px; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: #35496b; stroke-width: 1; }
+
+  .tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: #0a1520;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 11px;
+    font-size: 12px;
+    color: var(--white);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    opacity: 0;
+    transition: opacity 0.1s;
+    z-index: 10;
+    white-space: nowrap;
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip .tt-title { font-weight: 700; margin-bottom: 4px; color: var(--teal); }
+  .tooltip .tt-row { display: flex; justify-content: space-between; gap: 14px; }
+
+  .chart-wrap { position: relative; }
+
+  /* P&L summary table */
+  table.pnl-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.pnl-table th, table.pnl-table td {
+    padding: 9px 10px;
+    text-align: right;
+    border-bottom: 1px solid var(--gridline);
+  }
+  table.pnl-table th:first-child, table.pnl-table td:first-child { text-align: left; }
+  table.pnl-table thead th {
+    color: var(--muted); font-weight: 600; font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    border-bottom: 1px solid var(--border);
+  }
+  table.pnl-table tr.emphasis td { font-weight: 700; color: var(--white); }
+  table.pnl-table tr.total td { font-weight: 700; color: var(--teal); border-top: 1px solid var(--border); }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-header">
+    <div class="brand">
+      <div class="brand-mark">HNT</div>
+      <div>
+        <h1>HaloNutraTherapy — Investor Revenue Model</h1>
+        <p>Interactive projection · edit unit sales below to see the business potential</p>
+      </div>
+    </div>
+    <div class="header-note">
+      All figures are estimates driven by editable assumptions, not guarantees of future performance. Enter your own unit sales expectations for each product to see projected revenue, margin, and profit through 2032.
+    </div>
+  </header>
+
+  <section id="kpi-section">
+    <h2 class="section-title">Headline Numbers</h2>
+    <div class="year-select-row">
+      <label for="kpi-year">Show headline numbers for:</label>
+      <select id="kpi-year"></select>
+    </div>
+    <div class="kpi-row" id="kpi-row"></div>
+  </section>
+
+  <section id="input-section">
+    <h2 class="section-title">Unit Sales Assumptions</h2>
+    <p class="section-sub">Enter projected annual unit sales for each product. Price and landed cost per unit are shown for reference — edit them in the Assumptions panel below.</p>
+    <div class="card">
+      <div class="table-scroll">
+        <table class="model-table" id="input-table"></table>
+      </div>
+      <div class="actions-row">
+        <button class="btn primary" id="seed-btn">Load example ramp</button>
+        <button class="btn" id="clear-btn">Clear all to zero</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="assumptions-section">
+    <details class="assumptions" id="assumptions-details">
+      <summary>Pricing, Cost &amp; Margin Assumptions</summary>
+      <p class="section-sub" style="margin-top:12px;">Sourced from the HNT financial forecast working file. Adjust any value to stress-test the model — outputs recalculate immediately.</p>
+      <div class="assump-grid" id="assump-grid"></div>
+      <p class="assump-note">Blended selling expense = (HNT-generated share × HNT selling expense %) + (Partnership-generated share × partnership selling expense %), applied to revenue. G&amp;A is applied as a flat % of revenue per the forecast assumption.</p>
+    </details>
+  </section>
+
+  <section id="charts-section">
+    <h2 class="section-title">Projected Outcomes, 2027–2032</h2>
+    <div class="chart-grid">
+      <div class="card chart-wrap">
+        <p class="chart-title">Revenue by product category</p>
+        <div class="chart-legend" id="legend-stack"></div>
+        <svg class="chart" id="chart-stack" viewBox="0 0 560 300" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tooltip" id="tooltip-stack"></div>
+      </div>
+      <div class="card chart-wrap">
+        <p class="chart-title">Revenue, gross profit &amp; operating profit</p>
+        <div class="chart-legend" id="legend-line"></div>
+        <svg class="chart" id="chart-line" viewBox="0 0 420 300" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tooltip" id="tooltip-line"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pnl-section">
+    <h2 class="section-title">Summary P&amp;L</h2>
+    <div class="card">
+      <div class="table-scroll">
+        <table class="pnl-table" id="pnl-table"></table>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    HaloNutraTherapy Systems, Inc. — for discussion purposes with prospective investors only. This model reflects illustrative assumptions and is not a forecast, projection, or guarantee of actual results. All numbers are computed in your browser and are not transmitted anywhere.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var YEARS = [2027, 2028, 2029, 2030, 2031, 2032];
+
+  var PRODUCTS = [
+    { id: "nutrapocket", name: "Nutrapocket", group: "devices", price: 508.99, cost: 86.06,
+      note: "$499 + $9.99 S&H · landed cost $86.06" },
+    { id: "nutraflex", name: "NutraFlex", group: "devices", price: 3200, cost: 1455,
+      note: "Includes 2× 1/4 lb jars · landed cost $1,455" },
+    { id: "nad07", name: "HaloNAD .7oz jar", group: "jars07", price: 129, cost: 17.20,
+      note: "50% NAD compound cost" },
+    { id: "nadglut07", name: "HaloNAD/Glutathione .7oz jar", group: "jars07", price: 149, cost: 17.20,
+      note: "" },
+    { id: "relax07", name: "HaloRelax .7oz jar", group: "jars07", price: 129, cost: 13.50,
+      note: "" },
+    { id: "recovery07", name: "HaloRecovery .7oz jar", group: "jars07", price: 129, cost: 13.50,
+      note: "" },
+    { id: "nad14", name: "HaloNAD 1/4 lb jar", group: "jars14", price: 249, cost: 57.35,
+      note: "50% NAD compound cost" },
+    { id: "nadglut14", name: "HaloNAD/Glutathione 1/4 lb jar", group: "jars14", price: 249, cost: 46.70,
+      note: "" },
+    { id: "relax14", name: "HaloRelax 1/4 lb jar", group: "jars14", price: 249, cost: 38.32,
+      note: "" },
+    { id: "recovery14", name: "HaloRecovery 1/4 lb jar", group: "jars14", price: 249, cost: 38.32,
+      note: "" }
+  ];
+
+  var GROUPS = [
+    { id: "devices", label: "Devices", color: "var(--series-1)", hex: "#3987e5" },
+    { id: "jars07", label: ".7oz Compound Jars", group: "jars07", color: "var(--series-2)", hex: "#d95926" },
+    { id: "jars14", label: "1/4 lb Compound Jars", color: "var(--series-3)", hex: "#199e70" }
+  ];
+
+  var assumptions = {
+    hntShare: 0.30,
+    partnerShare: 0.70,
+    hntSellingExp: 0.15,
+    partnerSellingExp: 0.40,
+    gaPct: 0.25
+  };
+
+  // seed example unit-sales ramp — modest, illustrative, fully editable
+  var EXAMPLE_RAMP = {
+    nutrapocket:  [40, 90, 160, 260, 380, 520],
+    nutraflex:    [10, 25, 45, 70, 100, 135],
+    nad07:        [300, 900, 2000, 3600, 5600, 8000],
+    nadglut07:    [200, 650, 1500, 2700, 4200, 6000],
+    relax07:      [200, 650, 1500, 2700, 4200, 6000],
+    recovery07:   [150, 500, 1150, 2100, 3300, 4700],
+    nad14:        [60, 180, 400, 720, 1100, 1550],
+    nadglut14:    [40, 120, 270, 480, 730, 1030],
+    relax14:      [40, 120, 270, 480, 730, 1030],
+    recovery14:   [30, 90, 200, 360, 550, 780]
+  };
+
+  var units = {}; // units[productId] = [y2027..y2032]
+  PRODUCTS.forEach(function (p) { units[p.id] = [0, 0, 0, 0, 0, 0]; });
+
+  function fmtUSD(n, compact) {
+    if (compact) {
+      var abs = Math.abs(n);
+      if (abs >= 1e6) return (n / 1e6).toFixed(2).replace(/\.00$/, "") + "M";
+      if (abs >= 1e3) return (n / 1e3).toFixed(0) + "K";
+      return Math.round(n).toString();
+    }
+    return "$" + Math.round(n).toLocaleString("en-US");
+  }
+  function fmtUSDFull(n) {
+    return "$" + Math.round(n).toLocaleString("en-US");
+  }
+  function fmtPct(n) {
+    return (n * 100).toFixed(1) + "%";
+  }
+  function fmtUnits(n) {
+    return Math.round(n).toLocaleString("en-US");
+  }
+
+  function computeYear(yi) {
+    var revenueByGroup = { devices: 0, jars07: 0, jars14: 0 };
+    var revenue = 0, cogs = 0;
+    PRODUCTS.forEach(function (p) {
+      var u = units[p.id][yi] || 0;
+      var rev = u * p.price;
+      var cost = u * p.cost;
+      revenue += rev;
+      cogs += cost;
+      revenueByGroup[p.group] += rev;
+    });
+    var grossProfit = revenue - cogs;
+    var blendedSellingRate = assumptions.hntShare * assumptions.hntSellingExp +
+                              assumptions.partnerShare * assumptions.partnerSellingExp;
+    var sellingExpense = revenue * blendedSellingRate;
+    var gaExpense = revenue * assumptions.gaPct;
+    var operatingProfit = grossProfit - sellingExpense - gaExpense;
+    return {
+      revenue: revenue, cogs: cogs, grossProfit: grossProfit,
+      grossMargin: revenue > 0 ? grossProfit / revenue : 0,
+      sellingExpense: sellingExpense, gaExpense: gaExpense,
+      operatingProfit: operatingProfit,
+      operatingMargin: revenue > 0 ? operatingProfit / revenue : 0,
+      revenueByGroup: revenueByGroup,
+      blendedSellingRate: blendedSellingRate
+    };
+  }
+
+  function computeAll() {
+    return YEARS.map(function (y, i) { return computeYear(i); });
+  }
+
+  // ---------- Input table ----------
+  function buildInputTable() {
+    var table = document.getElementById("input-table");
+    var groupLabel = { devices: "Devices", jars07: ".7oz Compound Jars", jars14: "1/4 lb Compound Jars" };
+    var html = "<thead><tr><th>Product</th><th>Price</th><th>Landed / unit cost</th>";
+    YEARS.forEach(function (y) { html += "<th>" + y + "</th>"; });
+    html += "</tr></thead><tbody>";
+
+    var lastGroup = null;
+    PRODUCTS.forEach(function (p) {
+      if (p.group !== lastGroup) {
+        html += '<tr class="group-row"><td colspan="' + (3 + YEARS.length) + '">' + groupLabel[p.group] + "</td></tr>";
+        lastGroup = p.group;
+      }
+      html += "<tr>";
+      html += "<td>" + p.name + "</td>";
+      html += '<td class="ref-cell">' + fmtUSDFull(p.price) + "</td>";
+      html += '<td class="ref-cell">' + fmtUSDFull(p.cost) + "</td>";
+      YEARS.forEach(function (y, yi) {
+        html += '<td><input type="number" min="0" step="1" data-product="' + p.id + '" data-year="' + yi +
+          '" value="' + units[p.id][yi] + '" aria-label="' + p.name + " units " + y + '"></td>';
+      });
+      html += "</tr>";
+    });
+
+    html += '<tr class="total-row"><td>Total units</td><td></td><td></td>';
+    YEARS.forEach(function (y, yi) {
+      html += '<td id="total-units-' + yi + '">0</td>';
+    });
+    html += "</tr></tbody>";
+    table.innerHTML = html;
+
+    table.querySelectorAll("input[type=number]").forEach(function (inp) {
+      inp.addEventListener("input", function () {
+        var pid = inp.getAttribute("data-product");
+        var yi = parseInt(inp.getAttribute("data-year"), 10);
+        var v = parseFloat(inp.value);
+        units[pid][yi] = isNaN(v) || v < 0 ? 0 : v;
+        renderAll();
+      });
+    });
+  }
+
+  function updateTotalUnits() {
+    YEARS.forEach(function (y, yi) {
+      var total = 0;
+      PRODUCTS.forEach(function (p) { total += units[p.id][yi] || 0; });
+      var cell = document.getElementById("total-units-" + yi);
+      if (cell) cell.textContent = fmtUnits(total);
+    });
+  }
+
+  // ---------- Assumptions panel ----------
+  function buildAssumptionsPanel() {
+    var grid = document.getElementById("assump-grid");
+    grid.innerHTML =
+      '<div class="assump-block"><h4>Sales Channel Mix</h4>' +
+      assumpRow("HNT-generated sales", "hntShare", assumptions.hntShare, "%") +
+      assumpRow("Partnership-generated sales", "partnerShare", assumptions.partnerShare, "%") +
+      '</div>' +
+      '<div class="assump-block"><h4>Selling Expense by Channel</h4>' +
+      assumpRow("HNT selling expense", "hntSellingExp", assumptions.hntSellingExp, "%") +
+      assumpRow("Partnership selling expense", "partnerSellingExp", assumptions.partnerSellingExp, "%") +
+      '</div>' +
+      '<div class="assump-block"><h4>Overhead</h4>' +
+      assumpRow("G&amp;A (% of sales)", "gaPct", assumptions.gaPct, "%") +
+      '<div class="assump-row"><span>Blended selling expense (computed)</span><strong id="blended-rate-display">—</strong></div>' +
+      '</div>';
+
+    grid.querySelectorAll("input[data-assump]").forEach(function (inp) {
+      inp.addEventListener("input", function () {
+        var key = inp.getAttribute("data-assump");
+        var v = parseFloat(inp.value);
+        assumptions[key] = isNaN(v) ? 0 : v / 100;
+        renderAll();
+      });
+    });
+  }
+  function assumpRow(label, key, val, suffix) {
+    return '<div class="assump-row"><span>' + label + '</span>' +
+      '<input type="number" min="0" max="100" step="0.5" data-assump="' + key + '" value="' +
+      (val * 100).toFixed(1) + '">' + '</div>';
+  }
+
+  // ---------- KPI tiles ----------
+  function buildYearSelect() {
+    var sel = document.getElementById("kpi-year");
+    sel.innerHTML = "";
+    var cumOpt = document.createElement("option");
+    cumOpt.value = "cumulative";
+    cumOpt.textContent = "Cumulative 2027–2032";
+    sel.appendChild(cumOpt);
+    YEARS.forEach(function (y, yi) {
+      var opt = document.createElement("option");
+      opt.value = yi;
+      opt.textContent = y;
+      sel.appendChild(opt);
+    });
+    sel.value = "cumulative";
+    sel.addEventListener("change", renderKPIs);
+  }
+
+  function renderKPIs() {
+    var all = computeAll();
+    var sel = document.getElementById("kpi-year").value;
+    var data;
+    if (sel === "cumulative") {
+      data = all.reduce(function (acc, y) {
+        acc.revenue += y.revenue;
+        acc.grossProfit += y.grossProfit;
+        acc.operatingProfit += y.operatingProfit;
+        acc.cogs += y.cogs;
+        return acc;
+      }, { revenue: 0, grossProfit: 0, operatingProfit: 0, cogs: 0 });
+      data.grossMargin = data.revenue > 0 ? data.grossProfit / data.revenue : 0;
+      data.operatingMargin = data.revenue > 0 ? data.operatingProfit / data.revenue : 0;
+    } else {
+      data = all[parseInt(sel, 10)];
+    }
+
+    var row = document.getElementById("kpi-row");
+    row.innerHTML =
+      kpiTile("Total Revenue", fmtUSD(data.revenue, true), fmtUSDFull(data.revenue)) +
+      kpiTile("Gross Profit", fmtUSD(data.grossProfit, true), "Margin " + fmtPct(data.grossMargin)) +
+      kpiTile("Operating Profit", fmtUSD(data.operatingProfit, true),
+        (data.operatingProfit >= 0 ? "Margin " : "Margin ") + fmtPct(data.operatingMargin),
+        data.operatingProfit >= 0) +
+      kpiTile("Gross Margin", fmtPct(data.grossMargin), "Operating margin " + fmtPct(data.operatingMargin));
+  }
+  function kpiTile(label, value, sub, good) {
+    return '<div class="kpi-tile"><div class="kpi-label">' + label + '</div>' +
+      '<div class="kpi-value">' + value + '</div>' +
+      '<div class="kpi-sub' + (good ? " good" : "") + '">' + sub + '</div></div>';
+  }
+
+  // ---------- Stacked bar chart: revenue by category ----------
+  function renderStackChart() {
+    var all = computeAll();
+    var svg = document.getElementById("chart-stack");
+    var W = 560, H = 300;
+    var padL = 54, padR = 16, padT = 16, padB = 34;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+
+    var maxRev = Math.max(1, Math.max.apply(null, all.map(function (d) { return d.revenue; })));
+    var niceMax = niceCeil(maxRev);
+    var barW = plotW / YEARS.length * 0.56;
+    var gap = plotW / YEARS.length;
+
+    var svgns = "http://www.w3.org/2000/svg";
+    var parts = [];
+
+    // gridlines + y labels
+    var ticks = 4;
+    for (var t = 0; t <= ticks; t++) {
+      var v = niceMax * t / ticks;
+      var y = padT + plotH - (v / niceMax) * plotH;
+      parts.push('<line class="gridline" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y + '" y2="' + y + '"></line>');
+      parts.push('<text class="axis-label" x="' + (padL - 8) + '" y="' + (y + 3) + '" text-anchor="end">' + fmtUSD(v, true) + '</text>');
+    }
+    parts.push('<line class="baseline" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + (padT + plotH) + '" y2="' + (padT + plotH) + '"></line>');
+
+    all.forEach(function (d, i) {
+      var x = padL + gap * i + (gap - barW) / 2;
+      var yCursor = padT + plotH;
+      GROUPS.forEach(function (g) {
+        var val = d.revenueByGroup[g.id] || 0;
+        var h = (val / niceMax) * plotH;
+        if (h > 0.5) {
+          yCursor -= h;
+          parts.push('<rect x="' + x + '" y="' + yCursor + '" width="' + barW + '" height="' + Math.max(0, h - 2) +
+            '" fill="' + g.hex + '" rx="3" class="bar-seg" data-year="' + i + '" data-group="' + g.id + '"></rect>');
+          yCursor -= 2;
+        }
+      });
+      parts.push('<text class="axis-label" x="' + (x + barW / 2) + '" y="' + (padT + plotH + 20) +
+        '" text-anchor="middle">' + YEARS[i] + '</text>');
+      // invisible hover target over full bar column
+      parts.push('<rect x="' + (padL + gap * i) + '" y="' + padT + '" width="' + gap + '" height="' + plotH +
+        '" fill="transparent" class="hover-col" data-year="' + i + '"></rect>');
+    });
+
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.innerHTML = parts.join("");
+
+    // legend
+    document.getElementById("legend-stack").innerHTML = GROUPS.map(function (g) {
+      return '<span class="legend-item"><span class="legend-swatch" style="background:' + g.hex + '"></span>' + g.label + '</span>';
+    }).join("");
+
+    // tooltip
+    var tooltip = document.getElementById("tooltip-stack");
+    svg.querySelectorAll(".hover-col").forEach(function (el) {
+      el.addEventListener("mousemove", function (evt) {
+        var yi = parseInt(el.getAttribute("data-year"), 10);
+        var d = all[yi];
+        var rect = svg.getBoundingClientRect();
+        var html = '<div class="tt-title">' + YEARS[yi] + '</div>';
+        GROUPS.forEach(function (g) {
+          html += '<div class="tt-row"><span style="color:' + g.hex + '">' + g.label + '</span><span>' +
+            fmtUSD(d.revenueByGroup[g.id], true) + '</span></div>';
+        });
+        html += '<div class="tt-row" style="border-top:1px solid rgba(255,255,255,0.1);margin-top:4px;padding-top:4px;"><span>Total</span><span>' +
+          fmtUSD(d.revenue, true) + '</span></div>';
+        tooltip.innerHTML = html;
+        tooltip.classList.add("visible");
+        tooltip.style.left = (evt.clientX - rect.left + 14) + "px";
+        tooltip.style.top = (evt.clientY - rect.top - 10) + "px";
+      });
+      el.addEventListener("mouseleave", function () { tooltip.classList.remove("visible"); });
+    });
+  }
+
+  // ---------- Line chart: revenue / gross profit / operating profit ----------
+  function renderLineChart() {
+    var all = computeAll();
+    var svg = document.getElementById("chart-line");
+    var W = 420, H = 300;
+    var padL = 54, padR = 16, padT = 16, padB = 34;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+
+    var series = [
+      { key: "revenue", label: "Revenue", hex: "#3987e5" },
+      { key: "grossProfit", label: "Gross Profit", hex: "#d95926" },
+      { key: "operatingProfit", label: "Operating Profit", hex: "#199e70" }
+    ];
+
+    var allVals = [];
+    all.forEach(function (d) { series.forEach(function (s) { allVals.push(d[s.key]); }); });
+    var maxV = Math.max(1, Math.max.apply(null, allVals));
+    var minV = Math.min(0, Math.min.apply(null, allVals));
+    var niceMax = niceCeil(maxV);
+    var niceMin = minV < 0 ? -niceCeil(-minV) : 0;
+    var range = niceMax - niceMin;
+
+    function xFor(i) { return padL + (plotW / (YEARS.length - 1)) * i; }
+    function yFor(v) { return padT + plotH - ((v - niceMin) / range) * plotH; }
+
+    var svgns = "http://www.w3.org/2000/svg";
+    var parts = [];
+    var ticks = 4;
+    for (var t = 0; t <= ticks; t++) {
+      var v = niceMin + range * t / ticks;
+      var y = yFor(v);
+      parts.push('<line class="gridline" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y + '" y2="' + y + '"></line>');
+      parts.push('<text class="axis-label" x="' + (padL - 8) + '" y="' + (y + 3) + '" text-anchor="end">' + fmtUSD(v, true) + '</text>');
+    }
+    var zeroY = yFor(0);
+    parts.push('<line class="baseline" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + zeroY + '" y2="' + zeroY + '"></line>');
+
+    YEARS.forEach(function (y, i) {
+      parts.push('<text class="axis-label" x="' + xFor(i) + '" y="' + (padT + plotH + 20) + '" text-anchor="middle">' + y + '</text>');
+    });
+
+    series.forEach(function (s) {
+      var pts = all.map(function (d, i) { return xFor(i) + "," + yFor(d[s.key]); }).join(" ");
+      parts.push('<polyline points="' + pts + '" fill="none" stroke="' + s.hex + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>');
+      all.forEach(function (d, i) {
+        parts.push('<circle cx="' + xFor(i) + '" cy="' + yFor(d[s.key]) + '" r="4" fill="' + s.hex +
+          '" stroke="#152336" stroke-width="1.5" class="hover-pt" data-year="' + i + '"></circle>');
+      });
+    });
+
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.innerHTML = parts.join("");
+
+    document.getElementById("legend-line").innerHTML = series.map(function (s) {
+      return '<span class="legend-item"><span class="legend-swatch" style="background:' + s.hex + '"></span>' + s.label + '</span>';
+    }).join("");
+
+    var tooltip = document.getElementById("tooltip-line");
+    svg.querySelectorAll(".hover-pt").forEach(function (el) {
+      el.addEventListener("mousemove", function (evt) {
+        var yi = parseInt(el.getAttribute("data-year"), 10);
+        var d = all[yi];
+        var rect = svg.getBoundingClientRect();
+        var html = '<div class="tt-title">' + YEARS[yi] + '</div>';
+        series.forEach(function (s) {
+          html += '<div class="tt-row"><span style="color:' + s.hex + '">' + s.label + '</span><span>' +
+            fmtUSD(d[s.key], true) + '</span></div>';
+        });
+        tooltip.innerHTML = html;
+        tooltip.classList.add("visible");
+        tooltip.style.left = (evt.clientX - rect.left + 14) + "px";
+        tooltip.style.top = (evt.clientY - rect.top - 10) + "px";
+      });
+      el.addEventListener("mouseleave", function () { tooltip.classList.remove("visible"); });
+    });
+  }
+
+  function niceCeil(v) {
+    if (v <= 0) return 1;
+    var pow = Math.pow(10, Math.floor(Math.log10(v)));
+    var n = v / pow;
+    var niceN;
+    if (n <= 1) niceN = 1;
+    else if (n <= 2) niceN = 2;
+    else if (n <= 5) niceN = 5;
+    else niceN = 10;
+    return niceN * pow;
+  }
+
+  // ---------- P&L table ----------
+  function renderPnLTable() {
+    var all = computeAll();
+    var table = document.getElementById("pnl-table");
+    var rows = [
+      { label: "Total sales revenue", key: "revenue", emphasis: true },
+      { label: "Cost of goods sold", key: "cogs", negative: true },
+      { label: "Gross profit", key: "grossProfit", emphasis: true },
+      { label: "Gross margin %", key: "grossMargin", pct: true },
+      { label: "Selling expense", key: "sellingExpense", negative: true },
+      { label: "G&A expense", key: "gaExpense", negative: true },
+      { label: "Operating profit", key: "operatingProfit", total: true },
+      { label: "Operating margin %", key: "operatingMargin", pct: true }
+    ];
+
+    var html = "<thead><tr><th>Year</th>";
+    YEARS.forEach(function (y) { html += "<th>" + y + "</th>"; });
+    html += "</tr></thead><tbody>";
+
+    rows.forEach(function (r) {
+      var cls = r.total ? "total" : (r.emphasis ? "emphasis" : "");
+      html += '<tr class="' + cls + '"><td>' + r.label + "</td>";
+      all.forEach(function (d) {
+        var v = d[r.key];
+        var display;
+        if (r.pct) display = fmtPct(v);
+        else display = (r.negative && v > 0 ? "−" : "") + fmtUSD(v, true);
+        html += "<td>" + display + "</td>";
+      });
+      html += "</tr>";
+    });
+    html += "</tbody>";
+    table.innerHTML = html;
+  }
+
+  function renderAll() {
+    updateTotalUnits();
+    renderKPIs();
+    renderStackChart();
+    renderLineChart();
+    renderPnLTable();
+    var blended = assumptions.hntShare * assumptions.hntSellingExp + assumptions.partnerShare * assumptions.partnerSellingExp;
+    var el = document.getElementById("blended-rate-display");
+    if (el) el.textContent = fmtPct(blended);
+  }
+
+  function loadExampleRamp() {
+    PRODUCTS.forEach(function (p) {
+      units[p.id] = EXAMPLE_RAMP[p.id].slice();
+    });
+    syncInputsFromState();
+    renderAll();
+  }
+  function clearAll() {
+    PRODUCTS.forEach(function (p) { units[p.id] = [0, 0, 0, 0, 0, 0]; });
+    syncInputsFromState();
+    renderAll();
+  }
+  function syncInputsFromState() {
+    document.querySelectorAll('#input-table input[type=number]').forEach(function (inp) {
+      var pid = inp.getAttribute("data-product");
+      var yi = parseInt(inp.getAttribute("data-year"), 10);
+      inp.value = units[pid][yi];
+    });
+  }
+
+  function init() {
+    buildInputTable();
+    buildAssumptionsPanel();
+    buildYearSelect();
+    document.getElementById("seed-btn").addEventListener("click", loadExampleRamp);
+    document.getElementById("clear-btn").addEventListener("click", clearAll);
+    loadExampleRamp(); // seed on first load so charts aren't empty
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>
