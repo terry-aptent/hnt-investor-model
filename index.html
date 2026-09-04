@@ -213,6 +213,34 @@
   table.model-table input[type=number]::-webkit-inner-spin-button {
     opacity: 0.6;
   }
+  table.model-table input[type=number]:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    border-style: dashed;
+  }
+  .auto-toggle-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 10px 0 4px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+  }
+  .auto-toggle-row label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 600;
+    color: var(--white);
+    cursor: pointer;
+  }
+  .auto-toggle-row input[type=checkbox] {
+    width: 15px; height: 15px;
+    accent-color: var(--teal);
+  }
+  .auto-toggle-note { color: var(--text-muted); }
+
   .actions-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
   button.btn {
     background: var(--navy-light);
@@ -372,7 +400,7 @@
 
   <section id="input-section">
     <h2 class="section-title">Unit Sales Assumptions</h2>
-    <p class="section-sub">Enter projected annual unit sales for each product. Price and landed cost per unit are shown for reference — edit them in the Assumptions panel below.</p>
+    <p class="section-sub">Enter projected annual unit sales for each device. Compound jar volume is auto-calculated from device sales by default — an initial attach purchase plus ongoing reorders from the installed base — toggle off above either jar section to enter it manually instead.</p>
     <div class="card">
       <div class="table-scroll">
         <table class="model-table" id="input-table"></table>
@@ -389,7 +417,7 @@
       <summary>Pricing, Cost &amp; Margin Assumptions</summary>
       <p class="section-sub" style="margin-top:12px;">Sourced from the HNT financial forecast working file. Adjust any value to stress-test the model — outputs recalculate immediately.</p>
       <div class="assump-grid" id="assump-grid"></div>
-      <p class="assump-note">Blended selling expense = (HNT-generated share × HNT selling expense %) + (Partnership-generated share × partnership selling expense %), applied to revenue. G&amp;A is applied as a flat % of revenue per the forecast assumption. Every NutraFlex sold also absorbs the cost of its bundled free 1/4 lb jars as extra COGS, with no matching revenue.</p>
+      <p class="assump-note">Blended selling expense = (HNT-generated share × HNT selling expense %) + (Partnership-generated share × partnership selling expense %), applied to revenue. G&amp;A is applied as a flat % of revenue per the forecast assumption. Compound jar volume defaults to: (new devices sold this year × initial attach rate) + (prior installed base × repeat-sales share × reorder rate), split evenly across each tier's 4 flavors. NutraFlex's initial 2 jars are bundled at no charge (per the forecast — cost only, no matching revenue); everything else, including all reorders, is priced and sold normally.</p>
     </details>
   </section>
 
@@ -434,7 +462,7 @@
 
   var PRODUCTS = [
     { id: "nutrapocket", name: "Nutrapocket", group: "devices", price: 508.99, cost: 86.06,
-      note: "$499 + $9.99 S&H · landed cost $86.06" },
+      note: "$499 + $9.99 S&H · landed cost $86.06 · drives .7oz jar attach + reorders below" },
     { id: "nutraflex", name: "NutraFlex", group: "devices", price: 3200, cost: 1455,
       note: "Landed cost $1,455 · bundles 2 free 1/4 lb jars (added as extra COGS below, no separate revenue)" },
     { id: "nad07", name: "HaloNAD .7oz jar", group: "jars07", price: 129, cost: 17.20,
@@ -467,10 +495,16 @@
     hntSellingExp: 0.15,
     partnerSellingExp: 0.40,
     gaPct: 0.25,
-    jarsPerNutraFlex: 2
+    jarsPerNutraFlex: 2,
+    nutrapocketInitialAttach: 2,
+    repeatSalesShare: 0.50,
+    reorderRatePerYear: 4
   };
 
+  var JAR07_IDS = ["nad07", "nadglut07", "relax07", "recovery07"];
   var JAR14_IDS = ["nad14", "nadglut14", "relax14", "recovery14"];
+  var autoJars07 = true;
+  var autoJars14 = true;
 
   // seed example unit-sales ramp — modest, illustrative, fully editable
   var EXAMPLE_RAMP = {
@@ -489,14 +523,22 @@
   var units = {}; // units[productId] = [y2027..y2032]
   PRODUCTS.forEach(function (p) { units[p.id] = [0, 0, 0, 0, 0, 0]; });
 
-  function blendedJar14Cost() {
+  // last manually-entered jar values, preserved so toggling auto-calc off restores them
+  var manualJars07Cache = {};
+  var manualJars14Cache = {};
+  JAR07_IDS.forEach(function (id) { manualJars07Cache[id] = EXAMPLE_RAMP[id].slice(); });
+  JAR14_IDS.forEach(function (id) { manualJars14Cache[id] = EXAMPLE_RAMP[id].slice(); });
+
+  function blendedCost(ids) {
     var sum = 0;
-    JAR14_IDS.forEach(function (id) {
+    ids.forEach(function (id) {
       var p = PRODUCTS.filter(function (pp) { return pp.id === id; })[0];
       sum += p.cost;
     });
-    return sum / JAR14_IDS.length;
+    return sum / ids.length;
   }
+  function blendedJar14Cost() { return blendedCost(JAR14_IDS); }
+  function blendedJar07Cost() { return blendedCost(JAR07_IDS); }
 
   function fmtUSD(n, compact) {
     if (compact) {
@@ -515,6 +557,46 @@
   }
   function fmtUnits(n) {
     return Math.round(n).toLocaleString("en-US");
+  }
+
+  // total jar demand for a year = (new devices sold that year × initial attach rate)
+  // + (installed base from PRIOR years × repeat-sales share × reorder rate)
+  function computeAutoJarTotals(deviceId, initialAttachRate) {
+    var cumulative = 0;
+    var out = [];
+    YEARS.forEach(function (y, yi) {
+      var newUnits = units[deviceId][yi] || 0;
+      var initialQty = newUnits * initialAttachRate;
+      var recurringQty = cumulative * assumptions.repeatSalesShare * assumptions.reorderRatePerYear;
+      out.push(initialQty + recurringQty);
+      cumulative += newUnits;
+    });
+    return out;
+  }
+
+  function applyAutoJars07() {
+    if (!autoJars07) return;
+    var totals = computeAutoJarTotals("nutrapocket", assumptions.nutrapocketInitialAttach);
+    YEARS.forEach(function (y, yi) {
+      var perSku = Math.round(totals[yi] / JAR07_IDS.length);
+      JAR07_IDS.forEach(function (id) { units[id][yi] = perSku; });
+    });
+  }
+
+  function applyAutoJars14() {
+    if (!autoJars14) return;
+    // NutraFlex's initial 2 jars are the free bundle (handled as COGS-only below) —
+    // auto-derived 1/4lb volume here covers only the paid, revenue-generating reorders
+    var totals = computeAutoJarTotals("nutraflex", 0);
+    YEARS.forEach(function (y, yi) {
+      var perSku = Math.round(totals[yi] / JAR14_IDS.length);
+      JAR14_IDS.forEach(function (id) { units[id][yi] = perSku; });
+    });
+  }
+
+  function applyAutoJars() {
+    applyAutoJars07();
+    applyAutoJars14();
   }
 
   function computeYear(yi) {
@@ -550,7 +632,18 @@
   }
 
   function computeAll() {
+    applyAutoJars();
     return YEARS.map(function (y, i) { return computeYear(i); });
+  }
+
+  function toggleRowHtml(id, checked, noteText) {
+    var colspan = 3 + YEARS.length;
+    var label = id === "auto-jars07-toggle" ? "Auto-calculate from Nutrapocket sales" : "Auto-calculate from NutraFlex reorders";
+    return '<tr><td colspan="' + colspan + '" style="border-bottom:none;padding-top:0;padding-bottom:0;">' +
+      '<div class="auto-toggle-row">' +
+      '<label><input type="checkbox" id="' + id + '"' + (checked ? " checked" : "") + '> ' + label + '</label>' +
+      '<span class="auto-toggle-note">' + noteText + '</span>' +
+      '</div></td></tr>';
   }
 
   // ---------- Input table ----------
@@ -566,14 +659,26 @@
       if (p.group !== lastGroup) {
         html += '<tr class="group-row"><td colspan="' + (3 + YEARS.length) + '">' + groupLabel[p.group] + "</td></tr>";
         lastGroup = p.group;
+        if (p.group === "jars07") {
+          html += toggleRowHtml("auto-jars07-toggle", autoJars07,
+            "= (new Nutrapocket units sold × " + assumptions.nutrapocketInitialAttach + " initial attach) + (prior Nutrapocket installed base × " +
+            fmtPct(assumptions.repeatSalesShare) + " repeat share × " + assumptions.reorderRatePerYear + "x/year reorder rate), split evenly across the 4 flavors");
+        }
+        if (p.group === "jars14") {
+          html += toggleRowHtml("auto-jars14-toggle", autoJars14,
+            "= prior NutraFlex installed base × " + fmtPct(assumptions.repeatSalesShare) + " repeat share × " +
+            assumptions.reorderRatePerYear + "x/year reorder rate, split evenly across the 4 flavors (NutraFlex's initial 2 jars are a free bundle, costed separately below)");
+        }
       }
+      var isAutoJar = (p.group === "jars07" && autoJars07) || (p.group === "jars14" && autoJars14);
       html += "<tr>";
       html += '<td' + (p.note ? ' title="' + p.note.replace(/"/g, "&quot;") + '"' : '') + '>' + p.name + "</td>";
       html += '<td class="ref-cell">' + fmtUSDFull(p.price) + "</td>";
       html += '<td class="ref-cell">' + fmtUSDFull(p.cost) + "</td>";
       YEARS.forEach(function (y, yi) {
         html += '<td><input type="number" min="0" step="1" data-product="' + p.id + '" data-year="' + yi +
-          '" value="' + units[p.id][yi] + '" aria-label="' + p.name + " units " + y + '"></td>';
+          '" value="' + units[p.id][yi] + '" aria-label="' + p.name + " units " + y + '"' +
+          (isAutoJar ? " disabled" : "") + '></td>';
       });
       html += "</tr>";
     });
@@ -590,10 +695,36 @@
         var pid = inp.getAttribute("data-product");
         var yi = parseInt(inp.getAttribute("data-year"), 10);
         var v = parseFloat(inp.value);
-        units[pid][yi] = isNaN(v) || v < 0 ? 0 : v;
+        var clean = isNaN(v) || v < 0 ? 0 : v;
+        units[pid][yi] = clean;
+        if (JAR07_IDS.indexOf(pid) !== -1) manualJars07Cache[pid][yi] = clean;
+        if (JAR14_IDS.indexOf(pid) !== -1) manualJars14Cache[pid][yi] = clean;
         renderAll();
       });
     });
+
+    var toggle07 = document.getElementById("auto-jars07-toggle");
+    if (toggle07) {
+      toggle07.addEventListener("change", function () {
+        autoJars07 = toggle07.checked;
+        if (!autoJars07) {
+          JAR07_IDS.forEach(function (id) { units[id] = manualJars07Cache[id].slice(); });
+        }
+        buildInputTable();
+        renderAll();
+      });
+    }
+    var toggle14 = document.getElementById("auto-jars14-toggle");
+    if (toggle14) {
+      toggle14.addEventListener("change", function () {
+        autoJars14 = toggle14.checked;
+        if (!autoJars14) {
+          JAR14_IDS.forEach(function (id) { units[id] = manualJars14Cache[id].slice(); });
+        }
+        buildInputTable();
+        renderAll();
+      });
+    }
   }
 
   function updateTotalUnits() {
@@ -606,7 +737,8 @@
   }
 
   // ---------- Assumptions panel ----------
-  var RAW_ASSUMP_KEYS = ["jarsPerNutraFlex"]; // not stored as a 0-1 fraction
+  var RAW_ASSUMP_KEYS = ["jarsPerNutraFlex", "nutrapocketInitialAttach", "reorderRatePerYear"]; // not stored as a 0-1 fraction
+  var REBUILD_TABLE_KEYS = ["nutrapocketInitialAttach", "repeatSalesShare", "reorderRatePerYear"]; // change the toggle-row note text
 
   function buildAssumptionsPanel() {
     var grid = document.getElementById("assump-grid");
@@ -623,9 +755,13 @@
       assumpRow("G&amp;A (% of sales)", "gaPct", assumptions.gaPct, "%") +
       '<div class="assump-row"><span>Blended selling expense (computed)</span><strong id="blended-rate-display">—</strong></div>' +
       '</div>' +
-      '<div class="assump-block"><h4>NutraFlex Bundling</h4>' +
+      '<div class="assump-block"><h4>Compound Attach &amp; Reorders</h4>' +
       assumpRowRaw("Free 1/4 lb jars bundled per NutraFlex", "jarsPerNutraFlex", assumptions.jarsPerNutraFlex) +
-      '<div class="assump-row"><span>Blended 1/4 lb compound cost (computed)</span><strong>' + fmtUSDFull(blendedJar14Cost()) + '</strong></div>' +
+      assumpRowRaw("Initial .7oz jars purchased per Nutrapocket", "nutrapocketInitialAttach", assumptions.nutrapocketInitialAttach) +
+      assumpRow("Repeat-sales share of compound orders", "repeatSalesShare", assumptions.repeatSalesShare, "%") +
+      assumpRowRaw("Reorder rate, compound jars (times/year)", "reorderRatePerYear", assumptions.reorderRatePerYear) +
+      '<div class="assump-row"><span>Blended .7oz / 1/4 lb compound cost (computed)</span><strong>' +
+        fmtUSDFull(blendedJar07Cost()) + ' / ' + fmtUSDFull(blendedJar14Cost()) + '</strong></div>' +
       '</div>';
 
     grid.querySelectorAll("input[data-assump]").forEach(function (inp) {
@@ -634,6 +770,7 @@
         var v = parseFloat(inp.value);
         var clean = isNaN(v) || v < 0 ? 0 : v;
         assumptions[key] = RAW_ASSUMP_KEYS.indexOf(key) !== -1 ? clean : clean / 100;
+        if (REBUILD_TABLE_KEYS.indexOf(key) !== -1) buildInputTable();
         renderAll();
       });
     });
@@ -902,6 +1039,8 @@
   }
 
   function renderAll() {
+    applyAutoJars();
+    syncInputsFromState();
     updateTotalUnits();
     renderKPIs();
     renderStackChart();
@@ -916,11 +1055,15 @@
     PRODUCTS.forEach(function (p) {
       units[p.id] = EXAMPLE_RAMP[p.id].slice();
     });
+    JAR07_IDS.forEach(function (id) { manualJars07Cache[id] = EXAMPLE_RAMP[id].slice(); });
+    JAR14_IDS.forEach(function (id) { manualJars14Cache[id] = EXAMPLE_RAMP[id].slice(); });
     syncInputsFromState();
     renderAll();
   }
   function clearAll() {
     PRODUCTS.forEach(function (p) { units[p.id] = [0, 0, 0, 0, 0, 0]; });
+    JAR07_IDS.forEach(function (id) { manualJars07Cache[id] = [0, 0, 0, 0, 0, 0]; });
+    JAR14_IDS.forEach(function (id) { manualJars14Cache[id] = [0, 0, 0, 0, 0, 0]; });
     syncInputsFromState();
     renderAll();
   }
