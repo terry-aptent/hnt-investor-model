@@ -417,7 +417,7 @@
       <summary>Pricing, Cost &amp; Margin Assumptions</summary>
       <p class="section-sub" style="margin-top:12px;">Sourced from the HNT financial forecast working file. Adjust any value to stress-test the model — outputs recalculate immediately.</p>
       <div class="assump-grid" id="assump-grid"></div>
-      <p class="assump-note">Blended selling expense = (HNT-generated share × HNT selling expense %) + (Partnership-generated share × partnership selling expense %), applied to revenue. G&amp;A is applied as a flat % of revenue per the forecast assumption. .7oz jar volume = (new Nutrapocket units sold × [initial attach + additional-share × additional-qty]) + (prior Nutrapocket installed base × .7oz repeat-sales share × .7oz reorder rate). 1/4 lb jar volume = prior NutraFlex installed base × 1/4lb repeat-sales share × 1/4lb reorder rate. Each tier splits evenly across its 4 flavors. NutraFlex's initial 2 jars are bundled at no charge (cost only, no matching revenue); everything else, including all reorders and NP's additional-share purchases, is priced and sold normally.</p>
+      <p class="assump-note">Blended selling expense = (HNT-generated share × HNT selling expense %) + (Partnership-generated share × partnership selling expense %), applied to revenue. G&amp;A is applied as a flat % of revenue per the forecast assumption. .7oz jar volume = (new Nutrapocket units sold × [initial attach + additional-share × additional-qty]) + (prior Nutrapocket installed base × [.7oz repeat-sales share × .7oz reorder rate + NP recurring-additional share × qty × orders/year]). The "NP recurring additional compound" stream is independent of the general .7oz repeat-sales reorder stream — both draw from the same installed base but represent separate purchasing behavior. 1/4 lb jar volume = prior NutraFlex installed base × 1/4lb repeat-sales share × 1/4lb reorder rate. Each tier splits evenly across its 4 flavors. NutraFlex's initial 2 jars are bundled at no charge (cost only, no matching revenue); everything else, including all reorders and NP's additional-share purchases, is priced and sold normally.</p>
     </details>
   </section>
 
@@ -499,6 +499,9 @@
     nutrapocketInitialAttach: 2,
     nutrapocketAdditionalShare: 0.40,
     nutrapocketAdditionalQty: 1.5,
+    nutrapocketRecurringAdditionalShare: 0.40,
+    nutrapocketRecurringAdditionalQty: 1,
+    nutrapocketRecurringAdditionalRate: 3,
     repeatSalesShare07: 0.60,
     reorderRatePerYear07: 12,
     repeatSalesShare14: 0.80,
@@ -564,14 +567,15 @@
   }
 
   // total jar demand for a year = (new devices sold that year × initial attach rate)
-  // + (installed base from PRIOR years × repeat-sales share × reorder rate)
-  function computeAutoJarTotals(deviceId, initialAttachRate, repeatSalesShare, reorderRatePerYear) {
+  // + (installed base from PRIOR years × [repeat-sales share × reorder rate + extra recurring rate])
+  function computeAutoJarTotals(deviceId, initialAttachRate, repeatSalesShare, reorderRatePerYear, extraRecurringRate) {
+    extraRecurringRate = extraRecurringRate || 0;
     var cumulative = 0;
     var out = [];
     YEARS.forEach(function (y, yi) {
       var newUnits = units[deviceId][yi] || 0;
       var initialQty = newUnits * initialAttachRate;
-      var recurringQty = cumulative * repeatSalesShare * reorderRatePerYear;
+      var recurringQty = cumulative * (repeatSalesShare * reorderRatePerYear + extraRecurringRate);
       out.push(initialQty + recurringQty);
       cumulative += newUnits;
     });
@@ -584,8 +588,12 @@
     // "additional" jars bought by only a share of buyers (share × qty per buyer)
     var initialAttachRate = assumptions.nutrapocketInitialAttach +
       assumptions.nutrapocketAdditionalShare * assumptions.nutrapocketAdditionalQty;
+    // a second, independent recurring stream: a share of the installed base separately
+    // orders an additional new compound some number of times per year
+    var recurringAdditionalRate = assumptions.nutrapocketRecurringAdditionalShare *
+      assumptions.nutrapocketRecurringAdditionalQty * assumptions.nutrapocketRecurringAdditionalRate;
     var totals = computeAutoJarTotals("nutrapocket", initialAttachRate,
-      assumptions.repeatSalesShare07, assumptions.reorderRatePerYear07);
+      assumptions.repeatSalesShare07, assumptions.reorderRatePerYear07, recurringAdditionalRate);
     YEARS.forEach(function (y, yi) {
       var perSku = Math.round(totals[yi] / JAR07_IDS.length);
       JAR07_IDS.forEach(function (id) { units[id][yi] = perSku; });
@@ -672,8 +680,10 @@
         if (p.group === "jars07") {
           html += toggleRowHtml("auto-jars07-toggle", autoJars07,
             "= (new Nutrapocket units sold × [" + assumptions.nutrapocketInitialAttach + " initial attach + " +
-            fmtPct(assumptions.nutrapocketAdditionalShare) + " × " + assumptions.nutrapocketAdditionalQty + " additional]) + (prior Nutrapocket installed base × " +
-            fmtPct(assumptions.repeatSalesShare07) + " repeat share × " + assumptions.reorderRatePerYear07 + "x/year reorder rate), split evenly across the 4 flavors");
+            fmtPct(assumptions.nutrapocketAdditionalShare) + " × " + assumptions.nutrapocketAdditionalQty + " additional]) + (prior Nutrapocket installed base × [" +
+            fmtPct(assumptions.repeatSalesShare07) + " repeat share × " + assumptions.reorderRatePerYear07 + "x/year reorder rate + " +
+            fmtPct(assumptions.nutrapocketRecurringAdditionalShare) + " × " + assumptions.nutrapocketRecurringAdditionalQty + " × " +
+            assumptions.nutrapocketRecurringAdditionalRate + "x/year additional]), split evenly across the 4 flavors");
         }
         if (p.group === "jars14") {
           html += toggleRowHtml("auto-jars14-toggle", autoJars14,
@@ -749,8 +759,10 @@
 
   // ---------- Assumptions panel ----------
   var RAW_ASSUMP_KEYS = ["jarsPerNutraFlex", "nutrapocketInitialAttach", "nutrapocketAdditionalQty",
+    "nutrapocketRecurringAdditionalQty", "nutrapocketRecurringAdditionalRate",
     "reorderRatePerYear07", "reorderRatePerYear14"]; // not stored as a 0-1 fraction
   var REBUILD_TABLE_KEYS = ["nutrapocketInitialAttach", "nutrapocketAdditionalShare", "nutrapocketAdditionalQty",
+    "nutrapocketRecurringAdditionalShare", "nutrapocketRecurringAdditionalQty", "nutrapocketRecurringAdditionalRate",
     "repeatSalesShare07", "reorderRatePerYear07", "repeatSalesShare14", "reorderRatePerYear14"]; // change the toggle-row note text
 
   function buildAssumptionsPanel() {
@@ -774,6 +786,9 @@
       assumpRowRaw("NP additional compounds per NP (that share)", "nutrapocketAdditionalQty", assumptions.nutrapocketAdditionalQty) +
       assumpRow("Repeat-sales share, .7oz jars", "repeatSalesShare07", assumptions.repeatSalesShare07, "%") +
       assumpRowRaw("Reorder rate, .7oz jars (times/year)", "reorderRatePerYear07", assumptions.reorderRatePerYear07) +
+      assumpRow("NP recurring additional compound — share of installed base", "nutrapocketRecurringAdditionalShare", assumptions.nutrapocketRecurringAdditionalShare, "%") +
+      assumpRowRaw("NP recurring additional compound — qty per order", "nutrapocketRecurringAdditionalQty", assumptions.nutrapocketRecurringAdditionalQty) +
+      assumpRowRaw("NP recurring additional compound — orders/year", "nutrapocketRecurringAdditionalRate", assumptions.nutrapocketRecurringAdditionalRate) +
       '<div class="assump-row"><span>Blended .7oz compound cost (computed)</span><strong>' + fmtUSDFull(blendedJar07Cost()) + '</strong></div>' +
       '</div>' +
       '<div class="assump-block"><h4>1/4 lb Jars — NutraFlex Bundling &amp; Reorders</h4>' +
